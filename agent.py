@@ -32,7 +32,7 @@ def mcp_tool_to_gemini(tool) -> types.FunctionDeclaration:
     )
 
 
-async def run_autonomous_agent():
+async def run_autonomous_agent(user_name: str, user_text: str):
     server_params = StdioServerParameters(
         command="python",
         args=["servers/discord.py"],
@@ -60,6 +60,7 @@ async def run_autonomous_agent():
 
         channel_id = os.getenv("DISCORD_CHANNEL_ID")
         prompt = prompt_template.replace("{{channel_id}}", channel_id)
+        prompt += f"現在、{user_name}さんから「{user_text}」というメッセージが届いています。お母さんのような温かい雰囲気で返事してください。"
 
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))

@@ -25,6 +25,7 @@ async def chat(req: ChatRequest):
     try:
         # 引数つきで自律エージェント（メッセージ生成と送信）を実行
         await run_autonomous_agent(user_name=req.user, user_text=req.text)
+        print(f"DEBUG: Received request from {req.user}")
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
