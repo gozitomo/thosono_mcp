@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.135.2",
+    "google-cloud-firestore>=2.26.0",
     "google-genai>=1.69.0",
     "httpx>=0.28.1",
     "mcp>=1.26.0",
+    "pytz>=2026.1.post1",
     "uvicorn>=0.42.0",
 ]
