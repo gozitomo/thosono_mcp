@@ -106,21 +106,28 @@ async def call_tool(name: str, arguments: dict):
 
     # --- sync_todo: 更新 ---
     if name == "sync_todo":
-        doc_ref = (
-            db.collection("users")
-            .document(user_id)
-            .collction(arguments["collection_name"])
-            .document(arguments["doc_id"])
-        )
-        doc_ref.update(
-            {"status": arguments["status"], "updated_at": firestore.SERVER_TIMESTAMP}
-        )
-        return [
-            TextContent(
-                type="text",
-                text=f"✨ {arguments['doc_id']} を『{arguments['status']}』にしたよ！",
+        try:
+            doc_ref = (
+                db.collection("users")
+                .document(user_id)
+                .collection(arguments["collection_name"])
+                .document(arguments["doc_id"])
             )
-        ]
+            doc_ref.update(
+                {
+                    "status": arguments["status"],
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+            )
+            return [
+                TextContent(
+                    type="text",
+                    text=f"✨ {arguments['doc_id']} を『{arguments['status']}』にしたよ！",
+                )
+            ]
+        except Exception as e:
+            print(f"ERROR: sync_todo failed:{e}")
+            return [TextContent(type="text", text="更新に失敗しちゃった。ごめんね。")]
 
     # ---get_todo_list: 取得 ---
     if name == "get_todo_list":
