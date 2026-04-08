@@ -16,7 +16,7 @@ async def list_tools():
         # 1. 宿題の新規登録
         Tool(
             name="add_homework",
-            description="新しい宿題を登録する。args=[ユーザーID、内容、量、期日]",
+            description="新しい宿題を登録する。複数ある場合はまとめて登録する。",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -24,11 +24,29 @@ async def list_tools():
                         "type": "string",
                         "description": "ユーザーID（例：tatsuzin）",
                     },
-                    "title": {"type": "string", "description": "宿題の内容"},
-                    "amount": {"type": "string", "description": "量（例: 3ページ"},
-                    "due_date": {"type": "string", "description": "期日（YYYY-MM-DD）"},
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {
+                                    "type": "string",
+                                    "description": "宿題の内容（例：教科書ワーク",
+                                },
+                                "amount": {
+                                    "type": "string",
+                                    "description": "量（例：3ページ）",
+                                },
+                                "due_date": {
+                                    "type": "string",
+                                    "description": "期限（例：2024-04-10）。指定がない場合は、今日の日付をデフォルトとして使用してください。",
+                                },
+                            },
+                            "required": ["title"],
+                        },
+                    },
                 },
-                "required": ["user_id", "title", "amount", "due_date"],
+                "required": ["user_id", "items"],
             },
         ),
         # 2. タスク・宿題の状態更新 (完了・追加)
@@ -86,21 +104,46 @@ async def call_tool(name: str, arguments: dict):
 
     # --- add_homework: 登録 ---
     if name == "add_homework":
-        doc_ref = (
-            db.collection("users").document(user_id).collection("homeworks").document()
-        )
-        data = {
-            "title": arguments["title"],
-            "amount": arguments["amount"],
-            "due_date": arguments["due_date"],
-            "status": "未着手",
-            "updated_at": firestore.SERVER_TIMESTAMP,
-        }
-        doc_ref.set(data)
+        # items というリストで受け取る想定
+        items = arguments.get("items", [])
+        user_id = arguments.get("user_id")
+        if not items and "title" in arguments:
+            items = [
+                {
+                    "title": arguments.get("title", ""),
+                    "amount": arguments.get("amount", "1"),
+                    "due_date": arguments.get("due_date", ""),
+                }
+            ]
+
+        registered_titles = []
+        # Firestoreのバッチ処理を使用する
+
+        batch = db.batch()
+
+        for item in items:
+            doc_ref = (
+                db.collection("users")
+                .document(user_id)
+                .collection("homeworks")
+                .document()
+            )
+            data = {
+                "title": item.get("title"),
+                "amount": item.get("amount"),
+                "due_date": item.get("due_date"),
+                "status": "未着手",
+                "updated_at": firestore.SERVER_TIMESTAMP,
+            }
+            batch.set(doc_ref, data)
+            registered_titles.append(item["title"])
+        batch.commit()
+
+        titles_str = "、".join(registered_titles)
         return [
             TextContent(
                 type="text",
-                text=f"☑️{user_id}の宿題『{arguments['title']}』を登録したよ！",
+                text=f"☑️{user_id}の宿題『{titles_str}』を登録したよ！",
             )
         ]
 
