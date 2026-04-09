@@ -17,7 +17,9 @@ ALLOWED_USERS = ["tatsuzine_43909"]
 @app.post("/run")
 async def run():
     try:
-        await run_autonomous_agent(user_name="tatsuzine", user_text="", mode="regular")
+        await run_autonomous_agent(
+            user_name="tatsuzine_43909", user_text="", mode="regular"
+        )
         return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
