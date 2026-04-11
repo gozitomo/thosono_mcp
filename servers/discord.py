@@ -52,22 +52,35 @@ async def list_tools():
         # 2. タスク・宿題の状態更新 (完了・追加)
         Tool(
             name="sync_todo",
-            description="宿題、プロジェクトの状態を更新する。完了報告の際に使用する。",
+            description="宿題やタスクの状態を更新する。複数まとめて更新可能。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_id": {"type": "string"},
-                    "collection_name": {
-                        "type": "string",
-                        "enum": ["homeworks", "tasks", "projects"],
+                    "updates": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "collection_name": {
+                                    "type": "string",
+                                    "enum": ["homeworks", "tasks", "projects"],
+                                },
+                                "doc_id": {"type": "string"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["未着手", "進行中", "完了"],
+                                },
+                                "due_date": {
+                                    "type": "string",
+                                    "description": "期限（例：2024-04-10）。指定がない場合は、今日の日付をデフォルトとして使用してください。",
+                                },
+                            },
+                            "required": ["collection_name", "doc_id", "status"],
+                        },
                     },
-                    "doc_id": {
-                        "type": "string",
-                        "description": "更新するドキュメントID",
-                    },
-                    "status": {"type": "string", "enum": ["未着手", "進行中", "完了"]},
                 },
-                "required": ["user_id", "collection_name", "doc_id", "status"],
+                "required": ["user_id", "updates"],
             },
         ),
         # 3. TODOリストの一括取得
@@ -149,23 +162,48 @@ async def call_tool(name: str, arguments: dict):
 
     # --- sync_todo: 更新 ---
     if name == "sync_todo":
-        try:
-            doc_ref = (
-                db.collection("users")
-                .document(user_id)
-                .collection(arguments["collection_name"])
-                .document(arguments["doc_id"])
-            )
-            doc_ref.update(
+        user_id = arguments.get("user.id")
+        updates = arguments.get("updates", [])
+
+        # 1件だけのとき
+        if not updates and "doc_id" in arguments:
+            updates = [
                 {
-                    "status": arguments["status"],
-                    "updated_at": firestore.SERVER_TIMESTAMP,
+                    "collection_name": arguments.get("collection_name"),
+                    "doc_id": arguments.get("doc_id"),
+                    "status": arguments.get("status"),
+                    "due_date": arguments.get("due_date"),
                 }
-            )
+            ]
+        batch = db.batch()
+        updated_count = 0
+
+        try:
+            for up in updates:
+                col = up.get("collection_name")
+                did = up.get("doc_id")
+                new_status = up.get("status")
+
+                if not (col and did and new_status):
+                    continue
+                doc_ref = (
+                    db.collection("users")
+                    .document(user_id)
+                    .collection(col)
+                    .document(did)
+                )
+                batch.set(
+                    doc_ref,
+                    {"status": new_status, "updated_at": firestore.SERVER_TIMESTAMP},
+                    merge=True,
+                )
+                updated_count += 1
+
+            batch.commit()
             return [
                 TextContent(
                     type="text",
-                    text=f"✨ {arguments['doc_id']} を『{arguments['status']}』にしたよ！",
+                    text=f"✅ {updated_count}件のタスクを更新したよ！お疲れ様！",
                 )
             ]
         except Exception as e:
