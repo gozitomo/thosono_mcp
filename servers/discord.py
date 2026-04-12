@@ -98,12 +98,16 @@ async def list_tools():
         # 4. メッセージ送信（既存）
         Tool(
             name="send_message",
-            description="Discordのチャンネルにメッセージを送信する",
+            description="Discordのチャンネルにメッセージを送信する。画像URLがある場合は画像も表示する。",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "channel_id": {"type": "string"},
                     "content": {"type": "string"},
+                    "image_url": {
+                        "type": "string",
+                        "description": "表示したい画像URL（任意）",
+                    },
                 },
                 "required": ["channel_id", "content"],
             },
@@ -162,7 +166,7 @@ async def call_tool(name: str, arguments: dict):
 
     # --- sync_todo: 更新 ---
     if name == "sync_todo":
-        user_id = arguments.get("user.id")
+        user_id = arguments.get("user_id")
         updates = arguments.get("updates", [])
 
         # 1件だけのとき
@@ -183,6 +187,10 @@ async def call_tool(name: str, arguments: dict):
                 col = up.get("collection_name")
                 did = up.get("doc_id")
                 new_status = up.get("status")
+                # 🚀 これを print してログを確認！
+                print(
+                    f"DEBUG: 更新対象確認 -> col: {col}, ID: {did}, Status: {new_status}"
+                )
 
                 if not (col and did and new_status):
                     continue
@@ -222,13 +230,21 @@ async def call_tool(name: str, arguments: dict):
             for d in docs:
                 data = d.to_dict()
                 items.append(
-                    f"- ID: {d.id} / 内容: {data.get('title')} [{data.get('status', 'なし')}]"
+                    f"- ID: {d.id} / 更新日: {data.get('updated_at')} 期限: {data.get('due_date')} 内容: {data.get('title')} 量: {data.get('amount')} [{data.get('status', 'なし')}]"
                 )
             results.append(f"【{col}】】\n" + ("\n".join(items) if items else "なし"))
         return [TextContent(type="text", text="\n\n".join(results))]
 
     # --- send_message: 送信 ---
     if name == "send_message":
+        content = arguments.get("content")
+        image_url = arguments.get("image_url")
+
+        payload = {"content": content}
+
+        if image_url:
+            payload["embeds"] = [{"image": {"url": image_url}}]
+
         async with httpx.AsyncClient() as client:
             await client.post(
                 f"https://discord.com/api/v10/channels/{arguments['channel_id']}/messages",
@@ -237,7 +253,7 @@ async def call_tool(name: str, arguments: dict):
                     "Content-Type": "application/json",
                     "User-Agent": "DiscordBot (https://github.com/discord/discord-api-docs, 10)",
                 },
-                json={"content": arguments["content"]},
+                json=payload,
             )
         return [TextContent(type="text", text="送信しました")]
 
