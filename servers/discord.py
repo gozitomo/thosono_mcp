@@ -4,6 +4,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 from google.cloud import firestore
+from datetime import datetime
 
 server = Server("discord")
 
@@ -16,7 +17,7 @@ async def list_tools():
         # 1. 宿題の新規登録
         Tool(
             name="add_homework",
-            description="新しい宿題を登録する。複数ある場合はまとめて登録する。",
+            description="ユーザーが「〜をやりたい」「〜が残っている」「〜を予定している」など、未来の行動やタスクについて口にした時に必ず使用し、Firestoreに保存する。",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -35,7 +36,8 @@ async def list_tools():
                                 },
                                 "amount": {
                                     "type": "string",
-                                    "description": "量（例：3ページ）",
+                                    "description": "量（例：3ページ）。指定がない場合は、"
+                                    "をデフォルトとして使用してください。",
                                 },
                                 "due_date": {
                                     "type": "string",
@@ -124,12 +126,13 @@ async def call_tool(name: str, arguments: dict):
         # items というリストで受け取る想定
         items = arguments.get("items", [])
         user_id = arguments.get("user_id")
+        today_str = datetime.now().strftime("%Y-%m-%d")
         if not items and "title" in arguments:
             items = [
                 {
                     "title": arguments.get("title", ""),
                     "amount": arguments.get("amount", "1"),
-                    "due_date": arguments.get("due_date", ""),
+                    "due_date": arguments.get("due_date", today_str),
                 }
             ]
 
@@ -145,10 +148,18 @@ async def call_tool(name: str, arguments: dict):
                 .collection("homeworks")
                 .document()
             )
+            title = item.get("title", "無題のタスク")
+            amount = (
+                item.get("amount") if item.get("amount") else "1"
+            )  # nullか空なら"1"
+            due_date = (
+                item.get("due_date") if item.get("due_date") else today_str
+            )  # nullか空なら今日
+
             data = {
-                "title": item.get("title"),
-                "amount": item.get("amount"),
-                "due_date": item.get("due_date"),
+                "title": title,
+                "amount": amount,
+                "due_date": due_date,
                 "status": "未着手",
                 "updated_at": firestore.SERVER_TIMESTAMP,
             }
