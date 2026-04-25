@@ -267,6 +267,12 @@ async def call_tool(name: str, arguments: dict):
                 json=payload,
             )
         return [TextContent(type="text", text="送信しました")]
+    # どのツールにも該当しない場合
+    return [
+        TextContent(
+            type="text", text=f"ツール{name}は準備中か、使い方が間違っています。"
+        )
+    ]
 
 
 async def main():
