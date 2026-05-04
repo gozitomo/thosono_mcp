@@ -66,7 +66,7 @@ async def list_tools():
                             "properties": {
                                 "collection_name": {
                                     "type": "string",
-                                    "enum": ["homeworks", "tasks", "projects"],
+                                    "enum": ["homeworks"],
                                 },
                                 "doc_id": {"type": "string"},
                                 "status": {
@@ -231,11 +231,51 @@ async def call_tool(name: str, arguments: dict):
 
     # ---get_todo_list: 取得 ---
     if name == "get_todo_list":
+        user_id = arguments.get("user_id")
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
         user_ref = db.collection("users").document(user_id)
 
-        # 3つのコレクションを並列で取得
+        # homeworksのリスト化
+        homework_list = (
+            user_ref.collection("homeworks").where("due_date", "==", today_str).stream()
+        )
+
+        homework_titles = {d.to_dict().get("title") for d in homework_list}
+
+        # daily_tasksから今日の分をhomeworksに追加する
+        # Firestoreのバッチ処理を使用する
+        batch = db.batch()
+        daily_docs = list(user_ref.collection("daily_tasks").stream())
+        has_new_tasks = False
+        for col in daily_docs:
+            task_data = col.to_dict()
+            is_scheduled = task_data.get(datetime.now().strftime("%A").lower())
+            if is_scheduled and task_data.get("title") not in homework_titles:
+                doc_ref = (
+                    db.collection("users")
+                    .document(user_id)
+                    .collection("homeworks")
+                    .document()
+                )
+
+                data = {
+                    "title": task_data.get("title"),
+                    "amount": task_data.get("amount"),
+                    "unit": task_data.get("unit"),
+                    "due_date": today_str,
+                    "status": "未着手",
+                    "updated_at": firestore.SERVER_TIMESTAMP,
+                }
+                batch.set(doc_ref, data)
+                has_new_tasks = True
+            if has_new_tasks:
+                batch.commit()
+
+        # 表示用データを取得
         results = []
-        for col in ["homeworks", "tasks", "projects"]:
+
+        for col in ["homeworks"]:
             docs = list(user_ref.collection(col).stream())
             items = []
             for d in docs:
