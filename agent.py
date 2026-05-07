@@ -133,11 +133,16 @@ async def run_autonomous_agent(
                             )
                         )
 
+                        tool_content = types.Content(
+                            role="tool", parts=[tool_response_part]
+                        )
+
+                        chat_history.append(tool_content)
+
                         # ツール結果を履歴に追加して、再度Geminiに投げる
                         new_response = client.models.generate_content(
                             model="gemini-2.5-flash",
-                            contents=chat_history
-                            + [types.Content(role="tool", parts=[tool_response_part])],
+                            contents=chat_history,
                             config=types.GenerateContentConfig(tools=[gemini_tools]),
                         )
 
