@@ -4,7 +4,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 from google.cloud import firestore
-from datetime import datetime
+from datetime import datetime, timedelta
 
 server = Server("discord")
 
@@ -233,6 +233,7 @@ async def call_tool(name: str, arguments: dict):
     if name == "get_todo_list":
         user_id = arguments.get("user_id")
         today_str = datetime.now().strftime("%Y-%m-%d")
+        yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 
         user_ref = db.collection("users").document(user_id)
 
@@ -277,13 +278,22 @@ async def call_tool(name: str, arguments: dict):
 
         for col in ["homeworks"]:
             docs = list(user_ref.collection(col).stream())
-            items = []
+            tmp_items = []
+
             for d in docs:
                 data = d.to_dict()
+                due_date = d.get("due_date")
+                if data.get("due_date") >= yesterday_str:
+                    data["id"] = d.id
+                    tmp_items.append(data)
+            tmp_items.sort(key=lambda x: x.get("due_date", ""))
+
+            items = []
+            for data in tmp_items:
                 items.append(
                     f"- ID: {d.id} / 更新日: {data.get('updated_at')} 期限: {data.get('due_date')} 内容: {data.get('title')} 量: {data.get('amount')} [{data.get('status', 'なし')}]"
                 )
-            results.append(f"【{col}】】\n" + ("\n".join(items) if items else "なし"))
+            results.append(f"【{col}】\n" + ("\n".join(items) if items else "なし"))
         return [TextContent(type="text", text="\n\n".join(results))]
 
     # --- send_message: 送信 ---

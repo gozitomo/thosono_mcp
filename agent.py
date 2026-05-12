@@ -85,7 +85,7 @@ async def run_autonomous_agent(
             prompt += f"\n現在、{user_name}さんから「{user_text}」というメッセージが届いています。返事をしてください。"
         else:
             # 定時実行時
-            prompt += f"\n夕方の定期リマインドの時間です。まずはツールの get_todo_list を使って、{user_name}さんの現在の状況を確認してから、話しかけてください。"
+            prompt += f"\n定期リマインドの時間です。まずはツールの get_todo_list を使って、{user_name}さんの現在の状況を確認してから、話しかけてください。"
 
         try:
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
