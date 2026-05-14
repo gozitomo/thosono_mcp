@@ -107,6 +107,10 @@ async def run_autonomous_agent(
                 # 履歴にGeminiの回答（function_callを含む可能性がある）を追加
                 chat_history.append(current_response)
 
+                # Geminiがtool callのみで返答を終えた場合、partsがNoneになることがある
+                if not current_response or not current_response.parts:
+                    break
+
                 # function_call が含まれているか確認
                 found_fc = False
                 for part in current_response.parts:
