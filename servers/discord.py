@@ -291,7 +291,7 @@ async def call_tool(name: str, arguments: dict):
             items = []
             for data in tmp_items:
                 items.append(
-                    f"- ID: {d.id} / 更新日: {data.get('updated_at')} 期限: {data.get('due_date')} 内容: {data.get('title')} 量: {data.get('amount')} [{data.get('status', 'なし')}]"
+                    f"- ID: {data.get('id')} / 更新日: {data.get('updated_at')} 期限: {data.get('due_date')} 内容: {data.get('title')} 量: {data.get('amount')} [{data.get('status', 'なし')}]"
                 )
             results.append(f"【{col}】\n" + ("\n".join(items) if items else "なし"))
         return [TextContent(type="text", text="\n\n".join(results))]
